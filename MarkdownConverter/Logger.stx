@@ -1,0 +1,34 @@
+.include    markdown.sth
+.コンポーネント     BricksCore
+.名前空間   Logging
+.クラス     Logger
+----
+.定義
+    Public Class Logger
+
+.概要
+このLoggerは、シンプルに指定したメッセージのみを出力する。
+OutputLogLevelプロパティにより、ログ出力レベルを指定することができ、指定したレベル以上のメッセージを出力する。
+
+設定可能な出力レベルは以下の通りで、列挙型OutputLevelEnumで定義している（括弧内は割り当て値）
+- All (0) - すべて出力
+- Debug (1) - デバッグ
+- Detail (2) - 詳細
+- Info (3) - 情報
+- Warning (4) - 警告
+- Error (5) - エラー
+- Fatal (6) - 致命的エラー
+- None (9) - 出力なし
+
+.クラス階層
+    .自クラス   Logger          Logging
+    .子クラス   FormattedLogger Logging
+
+.コンストラクタ一覧
+.プロパティ一覧
+    .メンバ参照     New
+.メソッド一覧
+    .メンバ参照     Info    「情報」レベルでの出力
+.参照
+.#======================================
+

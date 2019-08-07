@@ -1,0 +1,99 @@
+﻿----------------------------------------
+# 名前空間一覧
+* [[Logging]]
+* [[DataBase]]
+* [[Message]]
+* [[Utility]]
+
+----------------------------------------
+# Logging 名前空間
+## クラス一覧
+* [FileAccessor](Logging.FileAccessor) - 通常のファイルに出力する、ログ出力クラス
+* [FormattedLogger](Logging.FormattedLogger) - 出力フォーマットを指定できるようにしたログ出力クラス
+* [LogAccessor](Logging.LogAccessor) - ログの出力先を示す抽象クラス
+* [Logger](Logging.Logger) - ログ出力の基本クラス
+* [NullAccessor](Logging.NullAccessor) - ログを全く出力しない、ログ出力先クラス
+
+----------------------------------------
+# Loggerクラス (BricksCore)
+----
+## 定義
+    Public Class Logger
+
+## 概要
+このLoggerは、シンプルに指定したメッセージのみを出力する。
+OutputLogLevelプロパティにより、ログ出力レベルを指定することができ、指定したレベル以上のメッセージを出力する。
+
+設定可能な出力レベルは以下の通りで、列挙型OutputLevelEnumで定義している（括弧内は割り当て値）
+- All (0) - すべて出力
+- Debug (1) - デバッグ
+- Detail (2) - 詳細
+- Info (3) - 情報
+- Warning (4) - 警告
+- Error (5) - エラー
+- Fatal (6) - 致命的エラー
+- None (9) - 出力なし
+
+#### クラス階層
+- <b>Logger</b>  
+    - [FormattedLogger](Logging.Logger.FormattedLogger)
+
+## コンストラクタ
+- [New](Logging.Logger.New)
+
+## プロパティ
+- [OutputLevel](Logging.Logger.OutputLevel) - ログ出力レベルの参照と設定
+- [Accessor](Logging.Logger.Accessor) - ログ出力オブジェクトの参照と設定
+
+## メソッド
+- [Info](Logging.Logger.Info) - 「情報」レベルでの出力
+- [Detail](Logging.Logger.Detail) - 「詳細」レベルでの出力
+- [Debug](Logging.Logger.Debug) - 「デバッグ」レベルでの出力
+- [Warning](Logging.Logger.Warning) - 「警告」レベルでの出力
+- [Error](Logging.Logger.Error) - 「エラー」レベルでの出力
+- [Fatal](Logging.Logger.Fatal) - 「致命的エラー」レベルでの出力
+- [Write](Logging.Logger.Write) - 出力レベル指定による出力
+
+## 参照
+- 列挙型：[OutputLevelEnum](Logging.OutputLevelEnum)
+- クラス：[LogAccessor](Logging.LogAccessor)
+
+----------------------------------------
+# LogAccessor クラス (BricksCore)
+----
+## 定義
+    Public MustInherit Class LogAccessor 
+
+----
+## 概要
+ログメッセージを出力する方法を定義するための、抽象クラス。
+必要に応じて、各メソッドをオーバーライドする。
+
+### 階層構造
+- <b>LogAccessor</b>
+    - [NullAccessor](Logging.NullAccessor)
+    - [FileAccessor](Logging.FileAccessor)
+    - [FormAccessor](Logging.FormAccessor)
+
+## メソッド
+- [Open](Logging.LogAccessor.Open) - 出力先デバイスをオープンする
+- [Close](Logging.LogAccessor.Close) - 出力先デバイスをクローズする
+- [Write](Logging.LogAccessor.Write) - 出力先デバイスにログメッセージを出力する
+
+## 参照
+
+----------------------------------------
+# Info メソッド
+----
+## 定義
+    Public Overridable Sub Info(iMsgFormat As String, ParamArray iData() As Object)
+    Public Overridable Sub Info(iMessage As String, iException As Exception)
+
+## 引数
+- iMsgFormat
+- iMessage
+- iData
+
+## 説明
+
+## 参照

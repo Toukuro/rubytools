@@ -1,0 +1,42 @@
+.# github Markdown用スタイル定義
+.#
+.vardef     component       $1
+.alias      コンポーネント  component
+
+.vardef     namespace       $1
+.alias      名前空間        namespace
+
+.styledef   class           # $1クラス（$component）
+.alias      クラス          class
+ 
+.styledef   hierarchy       ## クラス階層
+.alias      クラス階層      hierarchy
+
+.styledef   superclass      - [$1]($2.$1)
+.alias      親クラス        superclass
+.styledef   thisclass       - <b>$1</b>
+.alias      自クラス        thisclass
+.styledef   subclass        - [$1]($2.$1)
+.alias      子クラス        subclass
+
+.styledef   constructor     ## コンストラクタ
+.alias      コンストラクタ一覧  constructor
+.styledef   propertylist    ## プロパティ
+.alias      プロパティ一覧      propertylist
+.styledef   methodlist      ## メソッド
+.alias      メソッド一覧        methodlist
+.styledef   memberref       [$1]($namespace.$class.$1) - $2
+.alias      メンバ参照      memberref
+
+.styledef   specification   ## 定義
+.alias      定義            spec
+.styledef   description     ## 概要
+.alias      概要            description
+.styledef   param           ## パラメータ
+.alias      パラメータ      param
+.styledef   description     ## 説明
+.alias      説明            description
+.styledef   reference       ## 参照
+.alias      参照            reference
+
+.styledef   メソッド        # $1 メソッド
