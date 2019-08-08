@@ -28,6 +28,7 @@ class MarkdownConverter
       @value    = nil
       Encoding.default_external = Encoding::UTF_8
     end
+    attr_reader :value
   
     # スタイルとしてオブジェクトを生成
     # @param  name    [String]    定義名
@@ -53,20 +54,33 @@ class MarkdownConverter
 
     # スタイルの評価
     # @param  args  [String[]]  引数
+    # @return       [String]    評価結果
     def eval(args)
       @value = args[0]
-      if @style_type == ST_STYLE then
-        ret = @value.join(' ')
-        if ret.include?('$*') then
-            ret.gsub!('$*', args.join(' '))
-        else
-          (1..args.length).each do |n|
-            pattern = "$#{n}"
-            ret.gsub!(pattern, args[n - 1])
-          end
+      return nil if @style_type == ST_VARIABLE
+
+      result = @pattern.join(' ')
+      if result.include?('$*') then
+        result.gsub!('$*', args.join(' '))
+        args = []
+      else
+        (1..args.length).each do |n|
+          pattern = "$#{n}"
+          ret.gsub!(pattern, args[n - 1])
         end
-        return ret
+        max_idx = 0
+        while (md = /\$(\d+)/.match(result))
+          idx = md[1].to_i - 1
+          max_idx = max_idx < idx ? idx : max_idx
+          result[md.begin(0),md[0].length] = args[idx]
+        end
+        if args.length > max_idx + 1 then
+          args = args[max_idx + 1, -1]
+        else
+          args = []
+        end
       end
+      return [result] + args
     end
   end
 
@@ -79,28 +93,38 @@ class MarkdownConverter
   end
   attr_accessor :include_path
 
+  # スタイルおよびスタイル変数の評価
+  # @param  fields  [String[]]
   def eval(fields)
     @@log.debug("*** eval: fields:#{fields}")
+    return [] if fields.nil? || fields.empty? 
 
-    if fields[0].start_with?(".") then
-      sty = fields[0][1..-1]
-      args = fields[1..-1]
+    # fieldsの後ろから評価する
+    car = fields[0]
+    cdr = fields[1..-1]
+    result = eval(cdr)
 
-      sty = @aliases[sty] if @aliases.include?(sty)
-      @@log.debug("*** eval: #{fields[0][1..-1]} => #{sty}")
-
+    if car.start_with?('.') then
+      sty = car[1..-1]
+      # エイリアスの解決
+      while @aliases.include?(sty)
+        sty = @aliases[sty]
+      end
+      
+      # スタイルの解決
       unless @styles.include?(sty) then
         puts "*** style not defiend. [#{sty}]"
-        return
+        return result
       end
-
-      result = @styles[sty].eval(args)
-      puts result unless result.nil?
+      result = @styles[sty].eval(result)
     else
-      puts fields.join(' ')
+      result.unshift(car)
     end
+    return result
   end
 
+  #
+  # @param  fname   [String]
   def parse(fname)
     IO.foreach(fname) do |line|
       fields = line.chomp.split(" ")
@@ -133,14 +157,17 @@ class MarkdownConverter
         when ".alias"
           @aliases[def_name] = def_val[0]
         else
-          puts eval(fields)
+          result = eval(fields).join(' ')
+          while (md = /\$(\w+)/.match(result))
+            result[md.begin(0),md[0].length] = @variable[md[1]]
+          end
+          puts result
         end  
       else
         puts fields.join(' ')
       end
     end
-  end
-  
+  end 
 end
   
 begin
