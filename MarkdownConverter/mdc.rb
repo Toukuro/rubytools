@@ -4,8 +4,6 @@ require "Logger"
 #
 class MarkdownConverter
 
-  @@log = Logger.new("mdc-#{Time.now.strftime('%Y%m%d')}.log")
-
   #--------------------------------
   # Style 定義クラス
   class Style
@@ -15,12 +13,12 @@ class MarkdownConverter
     ST_STYLE    = 1   # スタイルとして定義。評価結果を返却する
     ST_VARIABLE = 2   # 変数として定義。評価結果は返却しない
 
-    @@log
+    @@log = nil
 
     # デフォルトコンストラクタ
     # @param  type    [Integer]   スタイルのタイプ
     # @param  name    [String]    定義名
-    # @param  pattern [String[]]  定義パターン
+    # @param  pattern [String]  定義パターン
     def initialize(type, name, pattern = nil)
       @style_type = type
       @name     = name
@@ -32,7 +30,7 @@ class MarkdownConverter
   
     # スタイルとしてオブジェクトを生成
     # @param  name    [String]    定義名
-    # @param  pattern [String[]]  定義パターン
+    # @param  pattern [String]  定義パターン
     def self.newStyle(name, pattern)
       @@log.debug("*** newStyle: name=#{name} pattern=#{pattern}")
       return self.new(ST_STYLE, name, pattern)
@@ -40,7 +38,7 @@ class MarkdownConverter
   
     # 変数としてオブジェクトを生成
     # @param  name    [String]    定義名
-    # @param  pattern [String[]]  定義パターン
+    # @param  pattern [String]  定義パターン
     def self.newVar(name, pattern)
       @@log.debug("*** newVar: name=#{name} pattern=#{pattern}") 
       return self.new(ST_VARIABLE, name, pattern)
@@ -48,7 +46,7 @@ class MarkdownConverter
 
     # Loggerの設定用
     # @param  val   [Logger]
-    def self.Logger=(val)
+    def self.logger=(val)
       @@log = val
     end
 
@@ -57,16 +55,16 @@ class MarkdownConverter
     # @return       [String]    評価結果
     def eval(args)
       @value = args[0]
-      return nil if @style_type == ST_VARIABLE
+      return [] if @style_type == ST_VARIABLE
 
-      result = @pattern.join(' ')
+      result = @pattern
       if result.include?('$*') then
         result.gsub!('$*', args.join(' '))
         args = []
       else
         (1..args.length).each do |n|
           pattern = "$#{n}"
-          ret.gsub!(pattern, args[n - 1])
+          result.gsub!(pattern, args[n - 1])
         end
         max_idx = 0
         while (md = /\$(\d+)/.match(result))
@@ -84,17 +82,27 @@ class MarkdownConverter
     end
   end
 
+  # クラス変数＆クラスメソッド
+  @@log = nil
+
+  #
+  # @param  val   [Logger]
+  def self.logger=(val)
+    @@log = val
+    Style.logger  = @@log
+  end
+
   # コンストラクタ
   def initialize()
     @styles       = {}
     @aliases      = {}
     @include_path = nil
-    Style.Logger  = @@log
   end
   attr_accessor :include_path
 
   # スタイルおよびスタイル変数の評価
   # @param  fields  [String[]]
+  # @return   [String[]]
   def eval(fields)
     @@log.debug("*** eval: fields:#{fields}")
     return [] if fields.nil? || fields.empty? 
@@ -106,16 +114,48 @@ class MarkdownConverter
 
     if car.start_with?('.') then
       sty = car[1..-1]
-      # エイリアスの解決
-      while @aliases.include?(sty)
-        sty = @aliases[sty]
-      end
+      sty_name = result[0]
+      sty_pattern = (result[1..-1] || []).join(' ')
+
+      case sty
+      when '#'
+        # comment
+        result = []
+      when 'include'
+        inc_name = sty_name
+        unless File.exist?(inc_name) then
+          inc_name = File.join(@include_path, inc_name) unless @include_path.nil?
+          unless File.exist?(inc_name) then
+            puts "*** include file not found. [#{inc_name}]"
+            return []
+          end
+        end
+        parse(inc_name)
+      when 'styledef'
+        @styles[sty_name] = Style.newStyle(sty_name, sty_pattern)
+      when 'vardef'
+        @styles[sty_name] = Style.newVar(sty_name, sty_pattern)
+      when 'alias'
+        @aliases[sty_name] = sty_pattern
+      else
+        # エイリアスの解決
+        while @aliases.include?(sty)
+          sty = @aliases[sty]
+        end
+        # スタイルの解決
+        unless @styles.include?(sty) then
+          puts "*** style not defiend. [#{sty}]"
+          return []
+        end
+
+        # xxxx
+        result = eval(fields).join(' ')
+        while (md = /\$(\w+)/.match(result))
+          result[md.begin(0),md[0].length] = @styles[md[1]].value || ''
+        end
+      end  
+
       
-      # スタイルの解決
-      unless @styles.include?(sty) then
-        puts "*** style not defiend. [#{sty}]"
-        return result
-      end
       result = @styles[sty].eval(result)
     else
       result.unshift(car)
@@ -125,6 +165,7 @@ class MarkdownConverter
 
   #
   # @param  fname   [String]
+  # @return
   def parse(fname)
     IO.foreach(fname) do |line|
       fields = line.chomp.split(" ")
@@ -133,9 +174,9 @@ class MarkdownConverter
       next if fields.empty?
 
       if fields[0].start_with?('.') then
-        cmd = fields[0][1..-1]
-        def_name = fields[1]
-        def_val  = fields[2..-1]
+        cmd         = fields[0][1..-1]
+        def_name    = fields[1]
+        def_pattern = (fields[2..-1] || []).join(' ')
 
         case fields[0]
         when ".#"
@@ -151,15 +192,15 @@ class MarkdownConverter
           end
           parse(inc_name)
         when ".styledef"
-          @styles[def_name] = Style.newStyle(def_name, def_val)
+          @styles[def_name] = Style.newStyle(def_name, def_pattern)
         when ".vardef"
-          @styles[def_name] = Style.newVar(def_name, def_val)
+          @styles[def_name] = Style.newVar(def_name, def_pattern)
         when ".alias"
-          @aliases[def_name] = def_val[0]
+          @aliases[def_name] = def_pattern[0]
         else
           result = eval(fields).join(' ')
           while (md = /\$(\w+)/.match(result))
-            result[md.begin(0),md[0].length] = @variable[md[1]]
+            result[md.begin(0),md[0].length] = @styles[md[1]].value || ''
           end
           puts result
         end  
@@ -171,10 +212,18 @@ class MarkdownConverter
 end
   
 begin
+  # ログ出力オブジェクトの生成と設定
+  log = Logger.new("mdc-#{Time.now.strftime('%Y%m%d')}.log")
+  MarkdownConverter.logger = log
+
+  # Markdown変換オブジェクトの生成
   mdc = MarkdownConverter.new
 
+  # 引数の処理
   until ARGV.empty? do
     arg = ARGV.shift
+
+    # '-'で始まっていたらコマンドラインオプション
     if arg.start_with?('-') then
       opt = arg[1..-1]
       case opt
@@ -183,6 +232,7 @@ begin
       end
       next
     end
+    # オプション以外はファイル名とみなして、変換を実行
     mdc.parse(arg)
   end  
 end
