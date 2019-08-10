@@ -62,18 +62,19 @@ class MarkdownConverter
         result.gsub!('$*', args.join(' '))
         args = []
       else
-        (1..args.length).each do |n|
-          pattern = "$#{n}"
-          result.gsub!(pattern, args[n - 1])
-        end
         max_idx = 0
         while (md = /\$(\d+)/.match(result))
           idx = md[1].to_i - 1
+          @@log.debug("result:#{result} args[#{idx}]:#{args[idx]}")
+          if args[idx].nil? then
+            args = []
+            break
+          end
           max_idx = max_idx < idx ? idx : max_idx
           result[md.begin(0),md[0].length] = args[idx]
         end
         if args.length > max_idx + 1 then
-          args = args[max_idx + 1, -1]
+          args = args[max_idx + 1, -1] || []
         else
           args = []
         end
@@ -81,6 +82,7 @@ class MarkdownConverter
       return [result] + args
     end
   end
+  #--------------------------------
 
   # クラス変数＆クラスメソッド
   @@log = nil
@@ -99,6 +101,19 @@ class MarkdownConverter
     @include_path = nil
   end
   attr_accessor :include_path
+
+  #
+  # @param  fname   [String]
+  # @return
+  def parse(fname)
+    IO.foreach(fname) do |line|
+      fields = line.chomp.split(" ")
+      @@log.debug("*** parse: fields:#{fields}")
+      next if fields.empty?
+
+      puts eval(fields).join(' ')
+    end
+  end 
 
   # スタイルおよびスタイル変数の評価
   # @param  fields  [String[]]
@@ -131,12 +146,16 @@ class MarkdownConverter
           end
         end
         parse(inc_name)
+        result = (result[1..-1] || [])
       when 'styledef'
         @styles[sty_name] = Style.newStyle(sty_name, sty_pattern)
+        result = []
       when 'vardef'
         @styles[sty_name] = Style.newVar(sty_name, sty_pattern)
+        result = []
       when 'alias'
         @aliases[sty_name] = sty_pattern
+        result = []
       else
         # エイリアスの解決
         while @aliases.include?(sty)
@@ -147,71 +166,38 @@ class MarkdownConverter
           puts "*** style not defiend. [#{sty}]"
           return []
         end
+        result = @styles[sty].eval(result)
 
-        # xxxx
-        result = eval(fields).join(' ')
-        while (md = /\$(\w+)/.match(result))
-          result[md.begin(0),md[0].length] = @styles[md[1]].value || ''
+        # スタイル変数の置換
+        result.each do |field|
+          while (md = /\$(\w+)/.match(field))
+            @@log.debug("field:#{field} varname:#{md[1]}")
+            if @styles[md[1]].nil? then
+              break
+            end
+            field[md.begin(0), md[0].length] = @styles[md[1]].value || ''
+          end
         end
       end  
-
-      
-      result = @styles[sty].eval(result)
     else
       result.unshift(car)
     end
     return result
   end
 
+  #--------------------------------
+  private
   #
-  # @param  fname   [String]
-  # @return
-  def parse(fname)
-    IO.foreach(fname) do |line|
-      fields = line.chomp.split(" ")
-      @@log.debug("*** parse: fields:#{fields}")
-
-      next if fields.empty?
-
-      if fields[0].start_with?('.') then
-        cmd         = fields[0][1..-1]
-        def_name    = fields[1]
-        def_pattern = (fields[2..-1] || []).join(' ')
-
-        case fields[0]
-        when ".#"
-          # comment
-        when ".include"
-          inc_name = def_name
-          unless File.exist?(inc_name) then
-            inc_name = File.join(@include_path, inc_name) unless @include_path.nil?
-            unless File.exist?(inc_name) then
-              puts "*** include file not found. [#{def_name}]"
-              next
-            end
-          end
-          parse(inc_name)
-        when ".styledef"
-          @styles[def_name] = Style.newStyle(def_name, def_pattern)
-        when ".vardef"
-          @styles[def_name] = Style.newVar(def_name, def_pattern)
-        when ".alias"
-          @aliases[def_name] = def_pattern[0]
-        else
-          result = eval(fields).join(' ')
-          while (md = /\$(\w+)/.match(result))
-            result[md.begin(0),md[0].length] = @styles[md[1]].value || ''
-          end
-          puts result
-        end  
-      else
-        puts fields.join(' ')
-      end
-    end
-  end 
+  def left_at(arry, n)
+    return arry[n, -1] || []
+  end
+  #
+  def include(fname)
+  end
 end
   
-begin
+  #--------------------------------
+  begin
   # ログ出力オブジェクトの生成と設定
   log = Logger.new("mdc-#{Time.now.strftime('%Y%m%d')}.log")
   MarkdownConverter.logger = log
