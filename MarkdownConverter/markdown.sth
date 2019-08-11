@@ -29,7 +29,7 @@
 .alias      メンバ参照      memberref
 
 .styledef   specification   ## 定義
-.alias      定義            spec
+.alias      定義            specification
 .styledef   description     ## 概要
 .alias      概要            description
 .styledef   param           ## パラメータ
@@ -39,4 +39,5 @@
 .styledef   reference       ## 参照
 .alias      参照            reference
 
-.styledef   メソッド        # $1 メソッド
+.styledef   method          # $1 メソッド
+.alias      メソッド        method
