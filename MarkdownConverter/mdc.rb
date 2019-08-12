@@ -1,4 +1,4 @@
-require "./BrxLogger"
+require "c:/tools/BrxLogger"
 #
 # mdc.rb  Markdown Converter
 #
@@ -19,28 +19,26 @@ class MarkdownConverter
         # @param  type    [Integer]   スタイルのタイプ
         # @param  name    [String]    定義名
         # @param  pattern [String]  定義パターン
-        def initialize(type, name, pattern = nil)
+        def initialize(type, name, pattern = nil, value = nil)
             @style_type = type
             @name     = name
             @pattern  = pattern
-            @value    = nil
+            @value    = value
         end
         attr_reader :value
 
         # スタイルとしてオブジェクトを生成
         # @param  name    [String]    定義名
         # @param  pattern [String]  定義パターン
-        def self.newStyle(name, pattern)
-            @@log.debug("*** name: #{name} pattern: #{pattern}")
-            return self.new(ST_STYLE, name, pattern)
+        def self.newStyle(name, pattern, value = nil)
+            return self.new(ST_STYLE, name, pattern, value)
         end
 
         # 変数としてオブジェクトを生成
         # @param  name    [String]    定義名
         # @param  pattern [String]  定義パターン
-        def self.newVar(name, pattern)
-            @@log.debug("*** name: #{name} pattern: #{pattern}") 
-            return self.new(ST_VARIABLE, name, pattern)
+        def self.newVar(name, pattern, value = nil)
+            return self.new(ST_VARIABLE, name, pattern, value)
         end
 
         # Loggerの設定用
@@ -54,9 +52,10 @@ class MarkdownConverter
         # @return       [String]    評価結果
         def eval(args)
             @value = args[0]
+            @@log.debug("set style var name: #{@name} value: #{@value}")
             return nil if @style_type == ST_VARIABLE
 
-            result = @pattern
+            result = String.new(@pattern)
             if result.include?('$*') then
                 result.gsub!('$*', args.join(' '))
                 args = []
@@ -64,13 +63,14 @@ class MarkdownConverter
                 max_idx = 0
                 while (md = /\$(\d+)/.match(result))
                     idx = md[1].to_i - 1
-                    @@log.debug("result: #{result} args[#{idx}]: #{args[idx]}")
+                    @@log.debug("before result: #{result} idx: #{idx} args: #{args}")
                     if args[idx].nil? then
                         args = []
                         break
                     end
                     max_idx = max_idx < idx ? idx : max_idx
                     result[md.begin(0),md[0].length] = args[idx]
+                    @@log.debug("after  result: #{result}")
                 end
                 if args.length > max_idx + 1 then
                     args = args[max_idx + 1, -1] || []
@@ -98,6 +98,8 @@ class MarkdownConverter
         @styles       = {}
         @aliases      = {}
         @include_path = nil
+        
+        @styles['>']  = Style.newStyle('>', '    $*')
     end
     attr_accessor :include_path
 
@@ -107,9 +109,10 @@ class MarkdownConverter
     def parse(fname)
         IO.foreach(fname) do |line|
             fields = line.chomp.split(" ")
-            @@log.debug("*** fields: #{fields}")
+            @@log.info("<<<<< fields: #{fields}")
             next if fields.empty?
             result = eval(fields)
+            @@log.info(">>>>> result: #{result}")
             puts result.join(' ') unless result.nil?
         end
     end 
@@ -123,7 +126,7 @@ class MarkdownConverter
         # fieldsの後ろから評価する
         top_word = fields.shift
         result = eval(fields)
-        @@log.debug("*** top_word: #{top_word} result: #{result}")
+        @@log.debug("top_word: #{top_word} result: #{result}")
 
         if top_word.start_with?('.') then
             sty_cmd  = top_word[1..-1]
@@ -134,23 +137,24 @@ class MarkdownConverter
             when '#'    # comment
                 result = nil
             when 'include'
-                @@log.debug("include: fname='#{sty_name}'")
+                @@log.info("include: fname='#{sty_name}'")
                 include(sty_name)
                 result = nil
             when 'styledef'
-                @@log.debug("styledef: name='#{sty_name}' pattern='#{sty_pattern}'")
+                @@log.info("styledef: name='#{sty_name}' pattern='#{sty_pattern}'")
                 @styles[sty_name] = Style.newStyle(sty_name, sty_pattern)
                 result = nil
             when 'vardef'
-                @@log.debug("vardef: name='#{sty_name}' pattern='#{sty_pattern}'")
+                @@log.info("vardef: name='#{sty_name}' pattern='#{sty_pattern}'")
                 @styles[sty_name] = Style.newVar(sty_name, sty_pattern)
                 result = nil
             when 'alias'
-                @@log.debug("alias: name='#{sty_name}' pattern='#{sty_pattern}'")
+                @@log.info("alias: name='#{sty_name}' pattern='#{sty_pattern}'")
                 @aliases[sty_name] = sty_pattern
                 result = nil
             else
                 # スタイルの展開
+                result.unshift(sty_name)
                 result = expand_style(sty_cmd, result)
             end  
         else
@@ -214,6 +218,7 @@ begin
 
     # ログ出力オブジェクトの生成と設定
     log = BrxLogger.new("mdc")
+    log.level = Logger::Severity::INFO
     MarkdownConverter.logger = log
     log.info("========== mdc start.")
 
