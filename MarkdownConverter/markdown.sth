@@ -9,7 +9,7 @@
 .alias      クラス              class
 .styledef   constructor         # $1 コンストラクタ
 .alias      コンストラクタ      constructor
-.styledef   property            # $1 プロパティ
+.styledef   property            プロパティ .. # $1
 .alias      プロパティ          property
 .styledef   method              # $1 メソッド
 .alias      メソッド            method

@@ -100,6 +100,7 @@ class MarkdownConverter
         @include_path = nil
         
         @styles['>']  = Style.newStyle('>', '    $*')
+        @styles['.'] = Style.newStyle('.', "\n")
     end
     attr_accessor :include_path
 
@@ -235,6 +236,8 @@ begin
             case opt
             when 'I'
                 mdc.include_path = ARGV.shift
+            when 'D'
+                log.level = Logger::Severity::DEBUG
             end
             next
         end

@@ -6,11 +6,11 @@
 .クラス     Logger
     .定義
         .> Public Class Logger
-
+        ..
     .概要
         このLoggerは、シンプルに指定したメッセージのみを出力する。
         OutputLogLevelプロパティにより、ログ出力レベルを指定することができ、指定したレベル以上のメッセージを出力する。
-
+        ..
         設定可能な出力レベルは以下の通りで、列挙型OutputLevelEnumで定義している（括弧内は割り当て値）
         - All (0) - すべて出力
         - Debug (1) - デバッグ
@@ -20,18 +20,21 @@
         - Error (5) - エラー
         - Fatal (6) - 致命的エラー
         - None (9) - 出力なし
-
+        ..
     .クラス階層
         .自クラス   Logger          Logging
         .> .子クラス    FormattedLogger Logging
-
+        ..
     .クラスメソッド一覧
         .メンバ参照     New         コンストラクタ
+        ..
     .プロパティ一覧
         .メンバ参照     OutputLevel 出力レベルの参照と設定
         .メンバ参照     Accessor    アクセサの参照と設定
+        ..
     .メソッド一覧
         .メンバ参照     Info        「情報」レベルでの出力
+        ..
     .参照
 
 ----
@@ -39,11 +42,14 @@
     .定義
         .> Public Sub New()
         .> Public Sub New(iLogAccessor As LogAccessor)
+        ..
     .パラメータ
          - iLogAccessor - ログ出力先となるアクセサを指定する
+         ..
     .説明
         １つ目の書式の場合、アクセサとしてNullAccessorを利用する。よってこの場合はなんらログ出力を行わない。
         ２つ目の書式の場合、指定されたアクセサを利用して、ログの出力を行う。出力先はアクセサの実装による。
+        ..
     .参照
         .参照先 LogAccesso  Logging
 
