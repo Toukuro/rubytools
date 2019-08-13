@@ -16,9 +16,9 @@ class MarkdownConverter
         @@log = nil
 
         # デフォルトコンストラクタ
-        # @param  type    [Integer]   スタイルのタイプ
-        # @param  name    [String]    定義名
-        # @param  pattern [String]  定義パターン
+        # @param  type    [Integer]     スタイルのタイプ
+        # @param  name    [String]      定義名
+        # @param  pattern [String]      定義パターン
         def initialize(type, name, pattern = nil, value = nil)
             @style_type = type
             @name     = name
@@ -28,28 +28,28 @@ class MarkdownConverter
         attr_reader :value
 
         # スタイルとしてオブジェクトを生成
-        # @param  name    [String]    定義名
-        # @param  pattern [String]  定義パターン
+        # @param  name    [String]      定義名
+        # @param  pattern [String]      定義パターン
         def self.newStyle(name, pattern, value = nil)
             return self.new(ST_STYLE, name, pattern, value)
         end
 
         # 変数としてオブジェクトを生成
-        # @param  name    [String]    定義名
-        # @param  pattern [String]  定義パターン
+        # @param  name    [String]      定義名
+        # @param  pattern [String]      定義パターン
         def self.newVar(name, pattern, value = nil)
             return self.new(ST_VARIABLE, name, pattern, value)
         end
 
-        # Loggerの設定用
-        # @param  val   [Logger]
+        # Loggerの設定
+        # @param  val   [Logger]        Loggerオブジェクト
         def self.logger=(val)
             @@log = val
         end
 
         # スタイルの評価
-        # @param  args  [String[]]  引数
-        # @return       [String]    評価結果
+        # @param  args  [String[]]      引数
+        # @return       [String]        評価結果
         def eval(args)
             @value = args[0]
             @@log.debug("set style var name: #{@name} value: #{@value}")
@@ -60,18 +60,19 @@ class MarkdownConverter
                 result.gsub!('$*', args.join(' '))
                 args = []
             else
-                max_idx = 0
+                max_idx = -1
+                @@log.debug("before result: #{result} args: #{args}")
                 while (md = /\$(\d+)/.match(result))
                     idx = md[1].to_i - 1
-                    @@log.debug("before result: #{result} idx: #{idx} args: #{args}")
                     if args[idx].nil? then
                         args = []
                         break
                     end
                     max_idx = max_idx < idx ? idx : max_idx
                     result[md.begin(0),md[0].length] = args[idx]
-                    @@log.debug("after  result: #{result}")
                 end
+                @@log.debug("after  result: #{result}")
+
                 if args.length > max_idx + 1 then
                     args = args[max_idx + 1, -1] || []
                 else
@@ -86,8 +87,8 @@ class MarkdownConverter
     # クラス変数＆クラスメソッド
     @@log = nil
 
-    #
-    # @param  val   [Logger]
+    # Loggerの設定
+    # @param  val   [Logger]    Loggerオブジェクト
     def self.logger=(val)
         @@log = val
         Style.logger  = @@log
