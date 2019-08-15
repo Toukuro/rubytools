@@ -51,17 +51,18 @@ class MarkdownConverter
         # @param  args  [String[]]      引数
         # @return       [String]        評価結果
         def eval(args)
-            @value = args[0]
-            @@log.debug("set style var name: #{@name} value: #{@value}")
-            return nil if @style_type == ST_VARIABLE
+            # @value = args[0]
+            # @@log.debug("set style var name: #{@name} value: #{@value}")
+            # return nil if @style_type == ST_VARIABLE
 
             result = String.new(@pattern)
+            @@log.debug("before result: '#{result}' args: #{args}")
+
             if result.include?('$*') then
                 result.gsub!('$*', args.join(' '))
                 args = []
             else
                 max_idx = -1
-                @@log.debug("before result: #{result} args: #{args}")
                 while (md = /\$(\d+)/.match(result))
                     idx = md[1].to_i - 1
                     if args[idx].nil? then
@@ -71,7 +72,6 @@ class MarkdownConverter
                     max_idx = max_idx < idx ? idx : max_idx
                     result[md.begin(0),md[0].length] = args[idx]
                 end
-                @@log.debug("after  result: #{result}")
 
                 if args.length > max_idx + 1 then
                     args = args[max_idx + 1, -1] || []
@@ -79,6 +79,15 @@ class MarkdownConverter
                     args = []
                 end
             end
+            @@log.debug("after  result: '#{result}' args: #{args}")
+
+            # 変数タイプは展開結果を値として保持
+            if @style_type == ST_VARIABLE then
+                @value = result
+                return args
+            end
+
+            #return result.split(' ') + args
             return [result] + args
         end
     end
@@ -100,8 +109,8 @@ class MarkdownConverter
         @aliases      = {}
         @include_path = nil
         
-        @styles['>']  = Style.newStyle('>', '    $*')
-        @styles['.'] = Style.newStyle('.', "\n")
+        @styles['>'] = Style.newVar('>', '    ', '    ')
+        @styles['.'] = Style.newVar('.', "\n", "\n")
     end
     attr_accessor :include_path
 
@@ -112,9 +121,18 @@ class MarkdownConverter
         IO.foreach(fname) do |line|
             fields = line.chomp.split(" ")
             @@log.info("<<<<< fields: #{fields}")
+
             next if fields.empty?
             result = eval(fields)
+
+            # スタイル変数の置換
+            unless result.nil?
+                result.each do |str|
+                    str = replace_stylevar(str)
+                end
+            end
             @@log.info(">>>>> result: #{result}")
+
             puts result.join(' ') unless result.nil?
         end
     end 
@@ -162,11 +180,13 @@ class MarkdownConverter
         else
             result.unshift(top_word)
         end
+
         return result
     end
 
     #--------------------------------   プライベートメソッド
     private
+
     # include処理
     # @param fname  [String]    インクルードファイル名
     def include(fname)
@@ -184,8 +204,6 @@ class MarkdownConverter
     # @param sty_cmd    [String]    スタイルコマンド
     # @param args       [String[]]  引数
     def expand_style(sty_cmd, args)
-        result = []
-
         # エイリアスの解決
         while @aliases.include?(sty_cmd)
             sty_cmd = @aliases[sty_cmd]
@@ -196,20 +214,25 @@ class MarkdownConverter
             puts "*** style not defiend. [#{sty_cmd}]"
             return nil
         end
-        result = @styles[sty_cmd].eval(args)
-        unless result.nil? then
-            # スタイル変数の置換
-            result.each do |field|
-                while (md = /\$(\w+)/.match(field))
-                    @@log.debug("field: #{field} varname: #{md[1]}")
-                    if @styles[md[1]].nil? then
-                        break
-                    end
-                    field[md.begin(0), md[0].length] = @styles[md[1]].value || ''
-                end
+        
+        return @styles[sty_cmd].eval(args)
+    end
+
+    # スタイル変数の置換
+    # @param str    [String]    置換対象の文字列
+    # @return       [String]    置換済みの文字列
+    def replace_stylevar(str)
+        return str if str.nil? || str.empty?
+
+        while (md = /\$([A-Za-z_]\w+|\.|\>)/.match(str))
+            @@log.debug("str: #{str} varname: #{md[1]}")
+            if @styles[md[1]].nil? then
+                puts "*** style var not defined. [#{md[1]}]"
+                break
             end
+            str[md.begin(0), md[0].length] = @styles[md[1]].value || ''
         end
-        return result
+        return str
     end
 end
 

@@ -7,11 +7,11 @@
 
 .styledef   class               # $1クラス（$component）
 .alias      クラス              class
-.styledef   constructor         # $1 コンストラクタ
+.styledef   constructor         コンストラクタ$.# $1
 .alias      コンストラクタ      constructor
-.styledef   property            プロパティ .. # $1
+.styledef   property            プロパティ$.# $1
 .alias      プロパティ          property
-.styledef   method              # $1 メソッド
+.styledef   method              メソッド$.# $1 
 .alias      メソッド            method
 
 .styledef   hierarchy           ## クラス階層

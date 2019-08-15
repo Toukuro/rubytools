@@ -1,0 +1,82 @@
+
+
+# Loggerクラス（BricksCore）
+## 定義
+     Public Class Logger
+
+## 説明
+このLoggerは、シンプルに指定したメッセージのみを出力する。
+OutputLogLevelプロパティにより、ログ出力レベルを指定することができ、指定したレベル以上のメッセージを出力する。
+
+設定可能な出力レベルは以下の通りで、列挙型OutputLevelEnumで定義している（括弧内は割り当て値）
+- All (0) - すべて出力
+- Debug (1) - デバッグ
+- Detail (2) - 詳細
+- Info (3) - 情報
+- Warning (4) - 警告
+- Error (5) - エラー
+- Fatal (6) - 致命的エラー
+- None (9) - 出力なし
+
+## クラス階層
+- <b>Logger</b>
+     - [FormattedLogger](Logging.FormattedLogger)
+
+## クラスメソッド
+- [New](#New) - コンストラクタ
+
+## プロパティ
+- [OutputLevel](#OutputLevel) - 出力レベルの参照と設定
+- [Accessor](#Accessor) - アクセサの参照と設定
+
+## メソッド
+- [Info](#Info) - 「情報」レベルでの出力
+
+## 参照
+- [LogAccessor](Logging.LogAccessor)
+----
+コンストラクタ
+# New
+## 定義
+     Public Sub New()
+     Public Sub New(iLogAccessor As LogAccessor)
+
+## パラメータ
+- iLogAccessor - ログ出力先となるアクセサを指定する
+
+## 説明
+１つ目の書式の場合、アクセサとしてNullAccessorを利用する。よってこの場合はなんらログ出力を行わない。
+２つ目の書式の場合、指定されたアクセサを利用して、ログの出力を行う。出力先はアクセサの実装による。
+
+----
+プロパティ
+# OutputLevel
+## 定義
+     Public Property OutputLevel As OutputLevelEnum = OutputLevelEnum.All
+
+## 説明
+ログ出力レベルの取得および設定を行う
+
+----
+プロパティ
+# Accessor
+## 定義
+     Public Property Accessor As LogAccessor
+
+## 説明
+ログ出力アクセサの取得および設定を行う
+
+----
+メソッド
+# Info
+## 定義
+     Public Overridable Sub Info(iMsgFormat As String, ParamArray iData() As Object)
+     Public Overridable Sub Info(iMessage As String, iException As Exception)
+
+## パラメータ
+- iMsgFormat - ログメッセージ（データ埋め込み可能）
+- iMessage - ログメッセージ
+- iData - 埋め込みデータ
+
+## 説明
+「情報」レベルでの出力を行う
