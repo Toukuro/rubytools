@@ -8,55 +8,64 @@ class MarkdownConverter
     # Style 定義クラス
     class Style
 
-        # スタイルのタイプ
-        ST_NONE     = 0
-        ST_STYLE    = 1   # スタイルとして定義。評価結果を返却する
-        ST_VARIABLE = 2   # 変数として定義。評価結果は返却しない
-
         @@log = nil
 
-        # デフォルトコンストラクタ
-        # @param  type    [Integer]     スタイルのタイプ
-        # @param  name    [String]      定義名
-        # @param  pattern [String]      定義パターン
-        def initialize(type, name, pattern = nil, value = nil)
-            @style_type = type
-            @name     = name
-            @pattern  = pattern
-            @value    = value
-        end
-        attr_reader :value
-
-        # スタイルとしてオブジェクトを生成
-        # @param  name    [String]      定義名
-        # @param  pattern [String]      定義パターン
-        def self.newStyle(name, pattern, value = nil)
-            return self.new(ST_STYLE, name, pattern, value)
-        end
-
-        # 変数としてオブジェクトを生成
-        # @param  name    [String]      定義名
-        # @param  pattern [String]      定義パターン
-        def self.newVar(name, pattern, value = nil)
-            return self.new(ST_VARIABLE, name, pattern, value)
-        end
-
         # Loggerの設定
-        # @param  val   [Logger]        Loggerオブジェクト
+        # @param    val         [Logger]        Loggerオブジェクト
         def self.logger=(val)
             @@log = val
         end
 
-        # スタイルの評価
-        # @param  args  [String[]]      引数
-        # @return       [String]        評価結果
-        def eval(args)
-            # @value = args[0]
-            # @@log.debug("set style var name: #{@name} value: #{@value}")
-            # return nil if @style_type == ST_VARIABLE
+        # デフォルトコンストラクタ
+        # @param    name        [String]      定義名
+        # @param    pattern     [String]      定義パターン
+        # @param    
+        def initialize(name, pattern = nil, value = nil)
+            @name       = name
+            @pattern    = unescape(pattern)
+            @value      = value
+        end
+        attr_accessor :value
 
-            result = String.new(@pattern)
-            @@log.debug("before result: '#{result}' args: #{args}")
+        # スタイルを評価し結果を返却する
+        # @param    args    [String[]]      引数
+        # @return           [String]        評価結果
+        def eval_style(args)
+            @@log.debug("name: #{@name}")
+            @value, args = eval(args)
+            result = @value.split(' ') + args
+            @@log.debug("result: #{result}")
+            return result
+        end
+
+        # スタイルを評価し結果を保持する
+        # @param    args    [String[]]      引数
+        # @return           [String]        未使用の引数
+        def eval_var(args)
+            @@log.debug("name: #{@name}")
+            @value, args = eval(args)
+            @@log.debug("result: #{args}")
+            return args
+        end
+
+        #--------------------------------   プライベートメソッド
+        private
+
+        def unescape(str)
+            @@log.debug("str: '#{str}'")
+            unless str.nil? || str.empty? then
+                str = str.gsub(/\\(.)/) {$1}
+            end
+            @@log.debug("str: '#{str}'")
+            return str
+        end
+
+        # スタイルの評価
+        # @param    args    [String[]]          引数
+        # @return           [String, String]    評価結果, 未使用引数
+        def eval(args)
+            result = String.new(@pattern || '')
+            #@@log.debug("before result: '#{result}' args: #{args}")
 
             if result.include?('$*') then
                 result.gsub!('$*', args.join(' '))
@@ -74,21 +83,17 @@ class MarkdownConverter
                 end
 
                 if args.length > max_idx + 1 then
-                    args = args[max_idx + 1, -1] || []
+                    #@@log.debug("args: #{args} max_idx: #{max_idx}")
+                    args = args[(max_idx + 1) .. -1] || []
                 else
                     args = []
                 end
             end
-            @@log.debug("after  result: '#{result}' args: #{args}")
+            #@@log.debug("after  result: '#{result}' args: #{args}")
 
-            # 変数タイプは展開結果を値として保持
-            if @style_type == ST_VARIABLE then
-                @value = result
-                return args
-            end
-
+            return result, args
             #return result.split(' ') + args
-            return [result] + args
+            #return [result] + args
         end
     end
     #--------------------------------
@@ -109,8 +114,10 @@ class MarkdownConverter
         @aliases      = {}
         @include_path = nil
         
-        @styles['>'] = Style.newVar('>', '    ', '    ')
-        @styles['.'] = Style.newVar('.', "\n", "\n")
+        @styles['>'] = Style.new('>', '    ', '    ')
+        @styles['.'] = Style.new('.', "\n", "\n")
+        @styles['date'] = Style.new('date', 'date', Time.now.strftime('%Y-%m-%d'))
+        @styles['time'] = Style.new('time', 'time', Time.now.strftime('%H:%M:%S'))
     end
     attr_accessor :include_path
 
@@ -122,7 +129,6 @@ class MarkdownConverter
             fields = line.chomp.split(" ")
             @@log.info("<<<<< fields: #{fields}")
 
-            next if fields.empty?
             result = eval(fields)
 
             # スタイル変数の置換
@@ -141,44 +147,49 @@ class MarkdownConverter
     # @param  fields  [String[]]
     # @return   [String[]]
     def eval(fields)
-        return [] if fields.nil? || fields.empty? 
+        return nil if fields.nil?
+        return []  if fields.empty? 
 
         # fieldsの後ろから評価する
-        top_word = fields.shift
+        field0 = fields.shift
         result = eval(fields)
-        @@log.debug("top_word: #{top_word} result: #{result}")
+        @@log.debug("field0: '#{field0}' result: #{result}")
 
-        if top_word.start_with?('.') then
-            sty_cmd  = top_word[1..-1]
-            sty_name = result.shift
-            sty_pattern = result.join(' ')
+        if field0.start_with?('.') then
+            sty_name  = field0[1..-1]
+            def_name = result.shift
+            def_pattern = result.join(' ')
 
-            case sty_cmd
+            case sty_name
             when '#'    # comment
                 result = nil
             when 'include'
-                @@log.info("include: fname='#{sty_name}'")
-                include(sty_name)
+                @@log.info("include: fname: '#{def_name}'")
+                include(def_name)
                 result = nil
             when 'styledef'
-                @@log.info("styledef: name='#{sty_name}' pattern='#{sty_pattern}'")
-                @styles[sty_name] = Style.newStyle(sty_name, sty_pattern)
+                @@log.info("styledef: name: '#{def_name}' pattern: '#{def_pattern}'")
+                @styles[def_name] = Style.new(def_name, def_pattern)
                 result = nil
-            when 'vardef'
-                @@log.info("vardef: name='#{sty_name}' pattern='#{sty_pattern}'")
-                @styles[sty_name] = Style.newVar(sty_name, sty_pattern)
+            when 'setvar'
+                @@log.info("setvar: name: '#{def_name}' value: '#{def_pattern}'")
+                unless @styles.include?(def_name) then
+                    @styles[def_name] = Style.new(def_name, nil, def_pattern)
+                else
+                    @styles[def_name].value = def_pattern
+                end
                 result = nil
             when 'alias'
-                @@log.info("alias: name='#{sty_name}' pattern='#{sty_pattern}'")
-                @aliases[sty_name] = sty_pattern
+                @@log.info("alias: name: '#{def_name}' pattern: '#{def_pattern}'")
+                @aliases[def_name] = def_pattern
                 result = nil
             else
                 # スタイルの展開
-                result.unshift(sty_name)
-                result = expand_style(sty_cmd, result)
+                result.unshift(def_name) unless def_name.nil?
+                result = expand_style(sty_name, result)
             end  
         else
-            result.unshift(top_word)
+            result = (result || []).unshift(field0)
         end
 
         return result
@@ -201,21 +212,24 @@ class MarkdownConverter
     end
 
     # スタイルの展開
-    # @param sty_cmd    [String]    スタイルコマンド
+    # @param sty_name    [String]    スタイルコマンド
     # @param args       [String[]]  引数
-    def expand_style(sty_cmd, args)
+    def expand_style(sty_name, args)
+        @@log.debug("sty_name: '#{sty_name}' args: #{args}")
+
         # エイリアスの解決
-        while @aliases.include?(sty_cmd)
-            sty_cmd = @aliases[sty_cmd]
+        while @aliases.include?(sty_name)
+            sty_name = @aliases[sty_name]
         end
 
         # スタイルの解決
-        unless @styles.include?(sty_cmd) then
-            puts "*** style not defiend. [#{sty_cmd}]"
+        unless @styles.include?(sty_name) then
+            puts "*** style not defiend. [#{sty_name}]"
             return nil
         end
-        
-        return @styles[sty_cmd].eval(args)
+
+        @@log.debug("sty_name: '#{sty_name}' args: #{args}")
+        return eval(@styles[sty_name].eval_style(args))
     end
 
     # スタイル変数の置換
